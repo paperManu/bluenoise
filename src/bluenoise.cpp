@@ -17,10 +17,42 @@
  */
 
 #include <iostream>
+#include <random>
 
 #include "./annealer.h"
+#include "./pattern.h"
+
+using namespace bluenoise;
 
 int main(int argc, char** argv)
 {
+    const size_t size = 128;
+    const size_t dims = 1;
+    const double tmax = 42.0;
+
+    using Pat = Pattern<size, dims>;
+    using Ann = Annealer<Pat>;
+
+    Ann::ErrorFunc errorFunc = [](const Pat& pattern) -> double { return pattern.getEnergy(); };
+    Ann::NeighbourFunc neighbourFunc = [](const Pat& pattern) -> Pat
+    {
+        std::random_device rdevice;
+        std::mt19937 rgen(rdevice);
+        std::uniform_int_distribution<size_t> rdist(0, size);
+
+        auto otherPattern = pattern;
+        auto xi = rdist(rgen);
+        auto xj = rdist(rgen);
+        auto yi = rdist(rgen);
+        auto yj = rdist(rgen);
+
+        otherPattern(xi, yi) = pattern(xj, yj);
+        otherPattern(xj, yj) = pattern(xi, yi);
+
+        return otherPattern;
+    };
+
+    Ann annealer(tmax, errorFunc, neighbourFunc);
+
     return 0;
 }
