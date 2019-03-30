@@ -19,6 +19,7 @@
 #include <array>
 #include <cassert>
 #include <random>
+#include <type_traits>
 
 namespace bluenoise
 {
@@ -30,6 +31,60 @@ template <size_t size, size_t dims = 1>
 class Pattern
 {
   public:
+    class ConstView;
+    class View
+    {
+        friend ConstView;
+
+      public:
+        View(float* ptr)
+        {
+            for (size_t i = 0; i < dims; ++i)
+                _data[i] = &ptr[i];
+        }
+
+        float& operator[](size_t index) { return *_data[index]; }
+
+        View& operator=(const View& rhs)
+        {
+            if (this == &rhs)
+                return *this;
+
+            for (size_t i = 0; i < dims; ++i)
+                *_data[i] = *rhs._data[i];
+
+            return *this;
+        }
+        View& operator=(const ConstView& rhs)
+        {
+            for (size_t i = 0; i < dims; ++i)
+                *_data[i] = *rhs._data[i];
+
+            return *this;
+        }
+
+      protected:
+        std::array<float*, dims> _data;
+    };
+
+    class ConstView
+    {
+        friend View;
+
+      public:
+        ConstView(const float* ptr)
+        {
+            for (size_t i = 0; i < dims; ++i)
+                _data[i] = &ptr[i];
+        }
+
+        const float& operator[](size_t index) { return *_data[index]; }
+
+      protected:
+        std::array<const float*, dims> _data;
+    };
+
+  public:
     /**
      * Constructor
      */
@@ -39,28 +94,24 @@ class Pattern
         assert(dims != 0);
 
         std::random_device rdevice;
-        std::mt19937 rgen(rdevice);
+        std::mt19937 rgen(rdevice());
         std::uniform_real_distribution<float> rdist(0.f, 1.f);
         for (size_t i = 0; i < _count; ++i)
             _data[i] = rdist(rgen);
     }
 
-    std::array<float&, dims> operator()(const size_t x, const size_t y)
+    View operator()(const size_t x, const size_t y)
     {
         assert(x < size);
         assert(y < size);
-        std::array<float&, dims> value;
-        for (size_t i = 0; i < dims; ++i)
-            value[i] = _data[(y * size + x) * dims + i];
+        View value(&_data[(y * size + x) * dims]);
         return value;
     }
-    const std::array<float&, dims> operator()(const size_t x, const size_t y) const
+    ConstView operator()(const size_t x, const size_t y) const
     {
         assert(x < size);
         assert(y < size);
-        std::array<float&, dims> value;
-        for (size_t i = 0; i < dims; ++i)
-            value[i] = _data[(y * size + x) * dims + i];
+        ConstView value(&_data[(y * size + x) * dims]);
         return value;
     }
 
@@ -81,7 +132,7 @@ class Pattern
         {
             for (size_t xi = 0; xi < size; ++xi)
             {
-                float* ps = _data[(yi * size + xi) * dims];
+                const float* ps = &_data[(yi * size + xi) * dims];
                 for (size_t yj = 0; yj < size; ++yj)
                 {
                     for (size_t xj = 0; xj < size; ++xj)
@@ -89,7 +140,7 @@ class Pattern
                         if (xi == xj && yi == yj)
                             continue;
 
-                        float* qs = _data[(yj * size + xj) * dims];
+                        const float* qs = &_data[(yj * size + xj) * dims];
                         float sqValueDist = 0.f;
                         for (size_t c = 0; c < dims; ++c)
                             sqValueDist += pow(ps[c] - qs[c], 2.f);

@@ -17,6 +17,7 @@
  */
 
 #include <functional>
+#include <random>
 
 namespace bluenoise
 {
@@ -34,11 +35,11 @@ class Annealer
   public:
     /**
      * Constructor
-     * \param tmax Maximum/initial temperature
+     * \param kMax Maximum iteration count
      * \param efunc Error function
      * \param nfunc Neighbour generation function
      */
-    Annealer(double tmax, const ErrorFunc& eFunc, const NeighbourFunc& nfunc) : _temperature(tmax), _errorFunc(eFunc), _neighbourFunc(nfunc) {}
+    Annealer(size_t kMax, const ErrorFunc& eFunc, const NeighbourFunc& nfunc) : _kMax(kMax), _errorFunc(eFunc), _neighbourFunc(nfunc) {}
 
     /**
      * Apply simulated annealing from the given initial state
@@ -48,9 +49,12 @@ class Annealer
     T cook(const T& initialState);
 
   private:
-    double _temperature{0.f};
+    size_t _kMax{1000};
+    double _eMax{1e-3};
     ErrorFunc _errorFunc{};
     NeighbourFunc _neighbourFunc{};
+
+    double iterToTemp(size_t iter) const { return static_cast<double>(_kMax - iter); }
 };
 
 /*************/
@@ -58,7 +62,34 @@ template <class T>
 T Annealer<T>::cook(const T& initialState)
 {
     auto currentState = initialState;
-    auto error = _errorFunc(currentState);
+    auto bestState = initialState;
+
+    auto currentError = _errorFunc(currentState);
+    auto bestError = _errorFunc(bestState);
+
+    std::random_device rdevice;
+    std::mt19937 rgen(rdevice());
+    std::uniform_real_distribution<float> rdist(0.f, 1.f);
+
+    for (size_t k = 0; k < _kMax && currentError > _eMax; ++k)
+    {
+        auto newState = _neighbourFunc(currentState);
+        auto newError = _errorFunc(newState);
+
+        if (newError < currentError || rdist(rgen) < std::exp((currentError - newError) / iterToTemp(k)))
+        {
+            currentState = newState;
+            currentError = newError;
+        }
+
+        if (currentError < bestError)
+        {
+            bestState = currentState;
+            bestError = currentError;
+        }
+    }
+
+    return bestState;
 }
 
 } // namespace bluenoise
