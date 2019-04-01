@@ -17,6 +17,7 @@
  */
 
 #include <functional>
+#include <iostream>
 #include <random>
 
 namespace bluenoise
@@ -76,6 +77,7 @@ T Annealer<T>::cook(const T& initialState)
         auto newState = _neighbourFunc(currentState);
         auto newError = _errorFunc(newState);
 
+        std::cout << "Current best error: " << bestError << " " << std::exp((currentError - newError) / iterToTemp(k)) << "\n";
         if (newError < currentError || rdist(rgen) < std::exp((currentError - newError) / iterToTemp(k)))
         {
             currentState = newState;

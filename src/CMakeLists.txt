@@ -23,6 +23,14 @@ add_definitions(-Wall -Wextra -Werror)
 # ┃┃┗┫┃  ┃  ┃ ┃ ┃┃┣╸ ┗━┓
 # ╹╹ ╹┗━╸┗━╸┗━┛╺┻┛┗━╸┗━┛
 include_directories(./)
+include_directories(../external/)
+include_directories(${NCURSES_INCLUDE_DIRS})
+
+
+# ╻  ╻┏┓╻╻┏ ┏━┓
+# ┃  ┃┃┗┫┣┻┓┗━┓
+# ┗━╸╹╹ ╹╹ ╹┗━┛
+link_directories(${NCURSES_LIBRARY_DIRS})
 
 
 # ╺┳╸┏━┓┏━┓┏━╸┏━╸╺┳╸┏━┓
@@ -37,3 +45,5 @@ add_executable(bluenoise)
 target_sources(bluenoise PRIVATE
     bluenoise.cpp
 )
+
+target_link_libraries(bluenoise ${NCURSES_LIBRARIES})

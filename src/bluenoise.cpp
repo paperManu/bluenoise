@@ -26,9 +26,9 @@ using namespace bluenoise;
 
 int main(int, char**)
 {
-    const size_t size = 4;
+    const size_t size = 16;
     const size_t dims = 1;
-    const double tmax = 42.0;
+    const double tmax = 10000.0;
 
     using Pat = Pattern<size, dims>;
     using Ann = Annealer<Pat>;
@@ -36,9 +36,9 @@ int main(int, char**)
     Ann::ErrorFunc errorFunc = [](const Pat& pattern) -> double { return pattern.getEnergy(); };
     Ann::NeighbourFunc neighbourFunc = [](const Pat& pattern) -> Pat
     {
-        std::random_device rdevice;
-        std::mt19937 rgen(rdevice());
-        std::uniform_int_distribution<size_t> rdist(0, size - 1);
+        static std::random_device rdevice;
+        static std::mt19937 rgen(rdevice());
+        static std::uniform_int_distribution<size_t> rdist(0, size - 1);
 
         auto otherPattern = pattern;
         auto xi = rdist(rgen);
@@ -56,13 +56,11 @@ int main(int, char**)
     Pat initialPattern;
     auto finalPattern = annealer.cook(initialPattern);
 
-    for (size_t y = 0; y < size; ++y)
-    {
-        for (size_t x = 0; x < size; ++x)
-            std::cout << finalPattern(x, y)[0] << " ";
-       std::cout << "\n";
-    }
-    std::cout << std::flush;
+    // Save the image to disk
+    initialPattern.saveToFile("whitenoise.png");
+    initialPattern.saveFourier("bluenoise_fourier.png");
+    finalPattern.saveToFile("bluenoise.png");
+    finalPattern.saveFourier("whitenoise_fourier.png");
 
     return 0;
 }

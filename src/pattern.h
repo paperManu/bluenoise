@@ -21,6 +21,9 @@
 #include <random>
 #include <type_traits>
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+
 namespace bluenoise
 {
 
@@ -116,6 +119,92 @@ class Pattern
     }
 
     /**
+     * Get a pointer to the data
+     * \return Return a pointer to the data
+     */
+    float* data() const { return _data.data(); }
+
+    /**
+     * Generate the Fourier transform for this pattern, and save it
+     * \param filename Path to save the Fourier transform to
+     */
+    void saveFourier(const std::string& filename) const
+    {
+        const double pi2 = 2.0 * M_PI;
+        const double invS = 1.0 / static_cast<double>(size);
+        double angle, cosA;
+
+        // FT along X
+        std::array<double, _count> fourierX;
+        for (size_t y = 0; y < size; ++y)
+        {
+            for (size_t x = 0; x < size; ++x)
+            {
+                for (size_t c = 0; c < dims; ++c)
+                {
+                    auto index = ((y * size) + x) * dims + c;
+                    fourierX[index] = 0.f;
+
+                    for (size_t xx = 0; xx < size; ++xx)
+                    {
+                        angle = pi2 * x * xx * invS;
+                        cosA = cos(angle);
+                        fourierX[index] += _data[((y * size) + xx) * dims + c] * cosA;
+                    }
+                    fourierX[index] *= invS;
+                }
+            }
+        }
+
+        // FT along Y
+        std::array<double, _count> fourierY;
+        for (size_t x = 0; x < size; ++x)
+        {
+            for (size_t y = 0; y < size; ++y)
+            {
+                for (size_t c = 0; c < dims; ++c)
+                {
+                    auto index = ((y * size) + x) * dims + c;
+                    fourierY[index] = 0.f;
+
+                    for (size_t yy = 0; yy < size; ++yy)
+                    {
+                        angle = pi2 * y * yy * invS;
+                        cosA = cos(angle);
+                        fourierY[index] += fourierX[((y * size) + yy) * dims + c] * cosA;
+                    }
+                    fourierY[index] *= invS;
+                }
+            }
+        }
+
+        // Combine both dimensions
+        std::array<double, _count> fourier2D;
+        double maxValue = 0.f;
+        for (size_t y = 0; y < size; ++y)
+        {
+            for (size_t x = 0; x < size; ++x)
+            {
+                for (size_t c = 0; c < dims; ++c)
+                {
+                    auto index = ((y * size) + x) * dims + c;
+                    fourier2D[index] = fourierX[((y * size) + x) * dims + c];
+                    fourier2D[index] *= fourierY[((y * size) + x) * dims + c];
+                    maxValue = std::max(maxValue, fourier2D[index]);
+                }
+            }
+        }
+
+        // Save to file
+        std::array<uint8_t, _count> imgData;
+        for (size_t y = 0; y < size; ++y)
+            for (size_t x = 0; x < size; ++x)
+                for (size_t c = 0; c < dims; ++c)
+                    imgData[(y * size) + x] = static_cast<uint8_t>(255.0 / maxValue * fourier2D[((y * size) + x) * dims + c]);
+        stbi_write_png(filename.c_str(), size, size, 1, imgData.data(), size);
+    }
+
+    /**
      * Get the pattern's energy as detailed in "Blue-noise Dithered Sampling", Iliyan et a.
      * \param pattern Pattern to compute the energy from
      * \param sigma_i Sigma_i, per the article
@@ -154,6 +243,21 @@ class Pattern
         }
 
         return energy;
+    }
+
+    /**
+     * Save the pattern to disk, as an 8bpc image
+     * \param filename Path to save the pattern to
+     * \return Return true if all went well
+     */
+    bool saveToFile(const std::string& filename)
+    {
+        std::array<uint8_t, _count> imgData;
+        for (size_t y = 0; y < size; ++y)
+            for (size_t x = 0; x < size; ++x)
+                for (size_t c = 0; c < dims; ++c)
+                    imgData[(y * size) + x] = static_cast<uint8_t>(255.f * _data[((y * size) + x) * dims + c]);
+        return stbi_write_png(filename.c_str(), size, size, 1, imgData.data(), size);
     }
 
   private:
